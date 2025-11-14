@@ -1,58 +1,3 @@
-// generator client {
-//   provider = "prisma-client-js"
-// }
-
-// datasource db {
-//   provider = "postgresql"
-//   url      = env("DATABASE_URL")
-// }
-
-// model User {
-//   id               Int           @id @default(autoincrement())
-//   name             String
-//   email            String?       @unique
-//   password         String?
-//   role             String
-//   resetToken       String?
-//   resetTokenExpiry DateTime?
-//   transactions     Transaction[] @relation("CreatedTransactions")
-//   createdAt        DateTime      @default(now())
-// }
-
-// model Category {
-//   id            Int        @id @default(autoincrement())
-//   name          String
-//   parentId      Int?
-//   parent        Category?  @relation("Subcategories", fields: [parentId], references: [id])
-//   subcategories Category[] @relation("Subcategories")
-//   meta          Json?
-//   createdAt     DateTime   @default(now())
-
-//   // relations to Transaction
-//   transactions            Transaction[] @relation("CategoryTransactions") // primary category
-//   subcategoryTransactions Transaction[] @relation("SubcategoryTransactions") // used as subcategory
-// }
-
-// model Transaction {
-//   id            Int      @id @default(autoincrement())
-//   type          String // "credit" or "debit"
-//   amount        Decimal
-//   categoryId    Int
-//   subcategoryId Int?
-//   note          String?
-//   date          DateTime @default(now())
-//   employee      String?
-//   reference     String?
-//   extraDetails  Json?
-//   createdById   Int
-
-//   // relations
-//   category    Category  @relation("CategoryTransactions", fields: [categoryId], references: [id])
-//   subcategory Category? @relation("SubcategoryTransactions", fields: [subcategoryId], references: [id])
-//   createdBy   User      @relation("CreatedTransactions", fields: [createdById], references: [id])
-
-//   createdAt DateTime @default(now())
-// }
 generator client {
   provider = "prisma-client-js"
 }
@@ -77,23 +22,21 @@ enum TransactionType {
 
 /// Models
 model User {
-  id               Int           @id @default(autoincrement())
-  name             String
-  email            String?       @unique
-  password         String?
-  role             Role          @default(USER)
-  resetToken       String?
-  resetTokenExpiry DateTime?
-
+  id                   Int           @id @default(autoincrement())
+  name                 String
+  email                String?       @unique
+  password             String?
+  role                 Role          @default(USER)
+  resetToken           String?
+  resetTokenExpiry     DateTime?
   // Relations
-  createdTransactions Transaction[] @relation("CreatedTransactions") // transactions this user created
+  createdTransactions  Transaction[] @relation("CreatedTransactions") // transactions this user created
   employeeTransactions Transaction[] @relation("EmployeeTransactions") // transactions assigned to / done by this employee (optional)
-
-  createdAt        DateTime      @default(now())
+  createdAt            DateTime      @default(now())
 }
 
 model Category {
-  id            Int        @id @default(autoincrement())
+  id            Int      @id @default(autoincrement())
   name          String
   parentId      Int?
   parent        Category?  @relation("Subcategories", fields: [parentId], references: [id], onDelete: Cascade)
@@ -102,13 +45,37 @@ model Category {
   createdAt     DateTime   @default(now())
 
   // relations to Transaction
-  transactions            Transaction[] @relation("CategoryTransactions")     // primary category
+  transactions            Transaction[] @relation("CategoryTransactions") // primary category
   subcategoryTransactions Transaction[] @relation("SubcategoryTransactions") // used as subcategory
 
   @@index([name])
   @@unique([name, parentId]) // optional: prevents duplicate names at same level
 }
 
+// ---------------------------------------------
+// ## 1. NEW MODEL ADDED ##
+// This model represents the "bill" or "expectation of payment"
+// ---------------------------------------------
+model Invoice {
+  id             Int       @id @default(autoincrement())
+  invoiceNumber  String    @unique // A unique number like "INV-2025-001"
+  expectedAmount Decimal   @db.Decimal(18, 2) // The total amount you asked for (e.g., 1000)
+  clientName     String?
+  issuedAt       DateTime  @default(now())
+  dueDate        DateTime?
+
+  // Links to all payments (Transactions) received for this invoice
+  payments       Transaction[] @relation("InvoicePayments")
+
+  createdAt      DateTime      @default(now())
+
+  @@index([invoiceNumber])
+}
+
+// ---------------------------------------------
+// ## 2. TRANSACTION MODEL UPDATED ##
+// We added 3 new fields and 1 new index
+// ---------------------------------------------
 model Transaction {
   id            Int             @id @default(autoincrement())
   type          TransactionType
@@ -122,6 +89,12 @@ model Transaction {
   extraDetails  Json?
   createdById   Int
 
+  // --- NEW FIELDS ADDED HERE ---
+  invoiceId          Int?     // Links to the Invoice (bill)
+  invoice            Invoice? @relation("InvoicePayments", fields: [invoiceId], references: [id], onDelete: SetNull)
+  reconciliationNote String?  // For your CA's "correction" or "leftover" note
+  // --- END OF NEW FIELDS ---
+
   // relations
   category    Category  @relation("CategoryTransactions", fields: [categoryId], references: [id], onDelete: Restrict)
   subcategory Category? @relation("SubcategoryTransactions", fields: [subcategoryId], references: [id], onDelete: SetNull)
@@ -133,4 +106,5 @@ model Transaction {
   @@index([date])
   @@index([categoryId])
   @@index([subcategoryId])
+  @@index([invoiceId]) // <-- NEW INDEX ADDED
 }
