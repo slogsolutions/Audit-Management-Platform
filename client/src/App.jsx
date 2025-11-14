@@ -1,35 +1,85 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import React, { useState } from 'react';
+import { Routes, Route, Navigate } from 'react-router-dom';
+import { useAuth } from './context/AuthProvider';
+import './App.css';
 
-function App() {
-  const [count, setCount] = useState(0)
+// Layout & UI
+import Sidebar from './components/SideBars';
+import Topbar from './components/Topbar';
 
-  return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+// Pages
+import Home from './pages/Home';
+import Login from './pages/Login';
+import Register from './pages/Register';
+import Dashboard from './pages/Dashboard';
+import Transactions from './pages/Transactions';
+import Users from './pages/Users';
+import Categories from './pages/Categories';
+
+/**
+ * ProtectedRoute - inline component that redirects to /login when not authenticated.
+ */
+function ProtectedRoute({ children }) {
+  const { token } = useAuth();
+  if (!token) return <Navigate to="/login" replace />;
+  return children;
 }
 
-export default App
+/**
+ * NotFound simple fallback
+ */
+function NotFound() {
+  return (
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="text-center space-y-4">
+        <h2 className="text-4xl font-bold gradient-text">404</h2>
+        <p className="text-muted-foreground text-lg">The page you are looking for does not exist.</p>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * App - main app that contains routes and layout.
+ * Sidebar/Topbar are rendered here so they appear across protected routes.
+ */
+export default function App() {
+  const [collapsed, setCollapsed] = useState(false);
+  const { token } = useAuth();
+
+  return (
+    <Routes>
+      {/* Public routes */}
+      <Route path="/" element={<Home />} />
+      <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
+
+      {/* Protected routes with layout */}
+      <Route
+        path="/*"
+        element={
+          <ProtectedRoute>
+            <div className="min-h-screen flex bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-slate-800">
+              <Sidebar collapsed={collapsed} onCollapse={() => setCollapsed(c => !c)} />
+              <div className="flex-1 flex flex-col overflow-hidden">
+                <Topbar />
+                <main className="flex-1 overflow-y-auto p-6">
+                  <Routes>
+                    <Route path="/dashboard" element={<Dashboard />} />
+                    <Route path="/transactions" element={<Transactions />} />
+                    <Route path="/users" element={<Users />} />
+                    <Route path="/categories" element={<Categories />} />
+                    <Route path="*" element={<NotFound />} />
+                  </Routes>
+                </main>
+              </div>
+            </div>
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Root redirect */}
+      <Route path="/" element={<Navigate to={token ? "/dashboard" : "/home"} replace />} />
+    </Routes>
+  );
+}

@@ -28,7 +28,7 @@ async function register(req, res, next) {
     const hashed = await bcrypt.hash(password, SALT_ROUNDS);
 
     const user = await prisma.user.create({
-      data: { name, email, password: hashed, role: role || 'employee' }
+      data: { name, email, password: hashed, role: role || 'USER' }
     });
 
     const token = signToken({ id: user.id, role: user.role });

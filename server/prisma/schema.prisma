@@ -1,3 +1,58 @@
+// generator client {
+//   provider = "prisma-client-js"
+// }
+
+// datasource db {
+//   provider = "postgresql"
+//   url      = env("DATABASE_URL")
+// }
+
+// model User {
+//   id               Int           @id @default(autoincrement())
+//   name             String
+//   email            String?       @unique
+//   password         String?
+//   role             String
+//   resetToken       String?
+//   resetTokenExpiry DateTime?
+//   transactions     Transaction[] @relation("CreatedTransactions")
+//   createdAt        DateTime      @default(now())
+// }
+
+// model Category {
+//   id            Int        @id @default(autoincrement())
+//   name          String
+//   parentId      Int?
+//   parent        Category?  @relation("Subcategories", fields: [parentId], references: [id])
+//   subcategories Category[] @relation("Subcategories")
+//   meta          Json?
+//   createdAt     DateTime   @default(now())
+
+//   // relations to Transaction
+//   transactions            Transaction[] @relation("CategoryTransactions") // primary category
+//   subcategoryTransactions Transaction[] @relation("SubcategoryTransactions") // used as subcategory
+// }
+
+// model Transaction {
+//   id            Int      @id @default(autoincrement())
+//   type          String // "credit" or "debit"
+//   amount        Decimal
+//   categoryId    Int
+//   subcategoryId Int?
+//   note          String?
+//   date          DateTime @default(now())
+//   employee      String?
+//   reference     String?
+//   extraDetails  Json?
+//   createdById   Int
+
+//   // relations
+//   category    Category  @relation("CategoryTransactions", fields: [categoryId], references: [id])
+//   subcategory Category? @relation("SubcategoryTransactions", fields: [subcategoryId], references: [id])
+//   createdBy   User      @relation("CreatedTransactions", fields: [createdById], references: [id])
+
+//   createdAt DateTime @default(now())
+// }
 generator client {
   provider = "prisma-client-js"
 }
@@ -7,15 +62,33 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+/// Enums
+enum Role {
+  ADMIN
+  USER
+  ACCOUNTANT
+  FINANCE
+}
+
+enum TransactionType {
+  CREDIT
+  DEBIT
+}
+
+/// Models
 model User {
   id               Int           @id @default(autoincrement())
   name             String
   email            String?       @unique
   password         String?
-  role             String
+  role             Role          @default(USER)
   resetToken       String?
   resetTokenExpiry DateTime?
-  transactions     Transaction[] @relation("CreatedTransactions")
+
+  // Relations
+  createdTransactions Transaction[] @relation("CreatedTransactions") // transactions this user created
+  employeeTransactions Transaction[] @relation("EmployeeTransactions") // transactions assigned to / done by this employee (optional)
+
   createdAt        DateTime      @default(now())
 }
 
@@ -23,33 +96,41 @@ model Category {
   id            Int        @id @default(autoincrement())
   name          String
   parentId      Int?
-  parent        Category?  @relation("Subcategories", fields: [parentId], references: [id])
+  parent        Category?  @relation("Subcategories", fields: [parentId], references: [id], onDelete: Cascade)
   subcategories Category[] @relation("Subcategories")
   meta          Json?
   createdAt     DateTime   @default(now())
 
   // relations to Transaction
-  transactions            Transaction[] @relation("CategoryTransactions") // primary category
+  transactions            Transaction[] @relation("CategoryTransactions")     // primary category
   subcategoryTransactions Transaction[] @relation("SubcategoryTransactions") // used as subcategory
+
+  @@index([name])
+  @@unique([name, parentId]) // optional: prevents duplicate names at same level
 }
 
 model Transaction {
-  id            Int      @id @default(autoincrement())
-  type          String // "credit" or "debit"
-  amount        Decimal
+  id            Int             @id @default(autoincrement())
+  type          TransactionType
+  amount        Decimal         @db.Decimal(18, 2)
   categoryId    Int
   subcategoryId Int?
   note          String?
-  date          DateTime @default(now())
-  employee      String?
+  date          DateTime        @default(now())
+  employeeId    Int?            // if transaction is assigned to / done by a specific employee
   reference     String?
   extraDetails  Json?
   createdById   Int
 
   // relations
-  category    Category  @relation("CategoryTransactions", fields: [categoryId], references: [id])
-  subcategory Category? @relation("SubcategoryTransactions", fields: [subcategoryId], references: [id])
-  createdBy   User      @relation("CreatedTransactions", fields: [createdById], references: [id])
+  category    Category  @relation("CategoryTransactions", fields: [categoryId], references: [id], onDelete: Restrict)
+  subcategory Category? @relation("SubcategoryTransactions", fields: [subcategoryId], references: [id], onDelete: SetNull)
+  createdBy   User      @relation("CreatedTransactions", fields: [createdById], references: [id], onDelete: Cascade)
+  employee    User?     @relation("EmployeeTransactions", fields: [employeeId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
+
+  @@index([date])
+  @@index([categoryId])
+  @@index([subcategoryId])
 }
