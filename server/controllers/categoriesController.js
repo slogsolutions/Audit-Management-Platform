@@ -54,6 +54,7 @@ async function createCategory(req, res, next) {
 async function addSubcategories(req, res, next) {
   try {
     const { parentId, names } = req.body;
+    // console.log("entered",names,"->parentId",parentId)
     if (!parentId) return res.status(400).json({ error: 'parentId required' });
     if (!Array.isArray(names) || names.length === 0) {
       return res.status(400).json({ error: 'names must be a non-empty array' });
@@ -208,8 +209,8 @@ async function deleteCategory(req, res, next) {
     const children = await prisma.category.findMany({ where: { parentId: id }, select: { id: true }});
     const childIds = children.map(c => c.id);
 
-    // Count expenses linked directly to this category or its subcategories
-    const expensesCount = await prisma.expense.count({
+    // Count transactions linked directly to this category or its subcategories
+    const transactionsCount = await prisma.transaction.count({
       where: {
         OR: [
           { categoryId: id },
@@ -218,18 +219,18 @@ async function deleteCategory(req, res, next) {
       }
     });
 
-    if ((childIds.length > 0 || expensesCount > 0) && !force) {
+    if ((childIds.length > 0 || transactionsCount > 0) && !force) {
       return res.status(400).json({
-        error: 'category has subcategories or linked expenses. Use ?force=true to delete and cascade.',
-        details: { subcategoriesCount: childIds.length, linkedExpenses: expensesCount }
+        error: 'category has subcategories or linked transactions. Use ?force=true to delete and cascade.',
+        details: { subcategoriesCount: childIds.length, linkedTransactions: transactionsCount }
       });
     }
 
     // If force, perform cascading deletion inside transaction
     if (force) {
       await prisma.$transaction(async (tx) => {
-        // delete expenses linked to subcategories or this category
-        await tx.expense.deleteMany({
+        // delete transactions linked to subcategories or this category
+        await tx.transaction.deleteMany({
           where: {
             OR: [
               { categoryId: id },
@@ -250,7 +251,7 @@ async function deleteCategory(req, res, next) {
       return res.json({ message: 'category and related data deleted (force=true)' });
     }
 
-    // If no children and no expenses, safe to delete
+    // If no children and no transactions, safe to delete
     await prisma.category.delete({ where: { id }});
     return res.json({ message: 'category deleted' });
   } catch (err) {
