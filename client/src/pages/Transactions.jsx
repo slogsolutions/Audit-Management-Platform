@@ -13,6 +13,13 @@ import dayjs from 'dayjs';
 import Papa from 'papaparse';
 import { AmountInput } from '@/components/ui/AmountInput';
 import { formatCurrency } from '@/lib/formatNumber';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select';
 
 async function fetchTransactions({ companyId = 1, skip = 0, limit = 20 } = {}) {
   const res = await api.get('/transactions', { params: { companyId, skip, limit } });
@@ -32,6 +39,41 @@ async function fetchOpenInvoices() {
 async function fetchAllInvoices() {
   const res = await api.get('/invoices');
   return res.data ?? [];
+}
+
+function formatInvoiceBalance(invoice) {
+  const expectedAmount = Number(invoice.expectedAmount || 0);
+  const totalPaid = Number(invoice.totalPaid || 0);
+  const balanceDue = Number(invoice.balanceDue || 0);
+  
+  // If received amount is more than expected + 5000, show as completed
+  if (totalPaid >= expectedAmount + 5000) {
+    return {
+      displayAmount: formatCurrency(expectedAmount),
+      displayBalance: formatCurrency(expectedAmount),
+      displayText: `Amount: ${formatCurrency(expectedAmount)} | Status: Completed (100%)`,
+      isCompleted: true
+    };
+  }
+  
+  // If balance is very close to 0 (within 1 rupee), treat as completed
+  if (Math.abs(balanceDue) <= 1) {
+    return {
+      displayAmount: formatCurrency(expectedAmount),
+      displayBalance: formatCurrency(expectedAmount),
+      displayText: `Amount: ${formatCurrency(expectedAmount)} | Status: Completed (100%)`,
+      isCompleted: true
+    };
+  }
+  
+  // Normal case - show actual balance
+  const percentage = expectedAmount > 0 ? Math.round((totalPaid / expectedAmount) * 100) : 0;
+  return {
+    displayAmount: formatCurrency(expectedAmount),
+    displayBalance: formatCurrency(Math.max(0, balanceDue)),
+    displayText: `Amount: ${formatCurrency(expectedAmount)} | Balance: ${formatCurrency(Math.max(0, balanceDue))} (${percentage}% paid)`,
+    isCompleted: false
+  };
 }
 
 export default function Transactions() {
@@ -486,34 +528,60 @@ export default function Transactions() {
             <>
               <div className="space-y-2">
                 <Label className="text-sm font-semibold">Category *</Label>
-                <select 
-                  {...register('categoryId', { required: true, valueAsNumber: true })} 
-                  className="w-full h-11 px-3 rounded-md border border-input bg-background"
-                  onChange={(e) => {
-                    setValue('categoryId', e.target.value);
+                <Select
+                  value={selectedCategoryId ? String(selectedCategoryId) : ''}
+                  onValueChange={(value) => {
+                    setValue('categoryId', value ? Number(value) : '');
                     setValue('subcategoryId', ''); // Reset subcategory when category changes
                   }}
                 >
-                  <option value="">Select category</option>
-                  {topLevelCategories.map(cat => (
-                    <option key={cat.id} value={cat.id}>{cat.name}</option>
-                  ))}
-                </select>
+                  <SelectTrigger className="w-full h-11">
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-[200px] overflow-y-auto">
+                    {topLevelCategories.map(cat => (
+                      <SelectItem key={cat.id} value={String(cat.id)}>
+                        {cat.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <input
+                  type="hidden"
+                  {...register('categoryId', { required: true, valueAsNumber: true })}
+                />
                 {errors.categoryId && <p className="text-xs text-red-500">Category is required</p>}
               </div>
 
               {selectedCategoryId && subcategories.length > 0 && (
                 <div className="space-y-2">
                   <Label className="text-sm font-semibold">Subcategory (Optional)</Label>
-                  <select 
-                    {...register('subcategoryId', { valueAsNumber: true })} 
-                    className="w-full h-11 px-3 rounded-md border border-input bg-background"
+                  <Select
+                    value={watch('subcategoryId') ? String(watch('subcategoryId')) : undefined}
+                    onValueChange={(value) => {
+                      if (value === 'none') {
+                        setValue('subcategoryId', '');
+                      } else {
+                        setValue('subcategoryId', value ? Number(value) : '');
+                      }
+                    }}
                   >
-                    <option value="">None</option>
-                    {subcategories.map(sub => (
-                      <option key={sub.id} value={sub.id}>{sub.name}</option>
-                    ))}
-                  </select>
+                    <SelectTrigger className="w-full h-11 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600">
+                      <SelectValue placeholder="None" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-[220px] overflow-y-auto w-full min-w-[var(--radix-select-trigger-width)] bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-xl">
+                      <SelectItem value="none" className="py-2">None</SelectItem>
+                      {subcategories.map(sub => (
+                        <SelectItem key={sub.id} value={String(sub.id)} className="py-2">
+                          {sub.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <input
+                    type="hidden"
+                    {...register('subcategoryId', { valueAsNumber: true })}
+                  />
                 </div>
               )}
             </>
@@ -543,27 +611,65 @@ export default function Transactions() {
                 <>
                   <div className="space-y-2">
                     <Label className="text-sm font-semibold">Select Invoice *</Label>
-                    {isAllInvoicesLoading ? (
+                    {isOpenInvoicesLoading ? (
                       <Input placeholder="Loading invoices..." disabled className="h-11" />
                     ) : (
-                      <select
-                        {...register('invoiceId', { 
-                          required: creditSource === 'invoice' ? 'Invoice is required' : false,
-                          valueAsNumber: true 
-                        })}
-                        className="w-full h-11 px-3 rounded-md border border-input bg-background"
+                      <Select
+                        value={selectedInvoiceId ? String(selectedInvoiceId) : undefined}
+                        onValueChange={(value) => {
+                          setValue('invoiceId', value ? Number(value) : '');
+                        }}
                       >
-                        <option value="">Select an invoice</option>
-                        {allInvoices.map(invoice => (
-                          <option key={invoice.id} value={invoice.id}>
-                            {invoice.invoiceNumber} - {invoice.clientName || 'N/A'} 
-                            {invoice.expectedAmount && ` (${formatCurrency(invoice.expectedAmount)})`}
-                            {invoice.balanceDue && ` - Balance: ${formatCurrency(invoice.balanceDue)}`}
-                          </option>
-                        ))}
-                      </select>
+                        <SelectTrigger className="w-full h-11 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600">
+                          <SelectValue placeholder="Select an invoice">
+                            {selectedInvoiceId && (() => {
+                              const selectedInvoice = openInvoices.find(inv => inv.id === selectedInvoiceId);
+                              return selectedInvoice ? (selectedInvoice.clientName || selectedInvoice.invoiceNumber) : '';
+                            })()}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent className="max-h-[280px] overflow-y-auto w-full min-w-[var(--radix-select-trigger-width)] bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-xl">
+                          {openInvoices
+                            .filter(invoice => {
+                              const balance = Number(invoice.balanceDue || 0);
+                              return balance > 1;
+                            })
+                            .map(invoice => {
+                              const balanceInfo = formatInvoiceBalance(invoice);
+                              return (
+                                <SelectItem 
+                                  key={invoice.id} 
+                                  value={String(invoice.id)}
+                                  className="py-2.5"
+                                >
+                                  <div className="flex flex-col gap-1.5 w-full">
+                                    <div className="font-semibold text-sm text-gray-900 dark:text-gray-100">
+                                      {invoice.invoiceNumber} - {invoice.clientName || 'N/A'}
+                                    </div>
+                                    <div className="text-xs text-gray-600 dark:text-gray-400">
+                                      {balanceInfo.displayText}
+                                    </div>
+                                  </div>
+                                </SelectItem>
+                              );
+                            })}
+                        </SelectContent>
+                      </Select>
                     )}
+                    <input
+                      type="hidden"
+                      {...register('invoiceId', { 
+                        required: creditSource === 'invoice' ? 'Invoice is required' : false,
+                        valueAsNumber: true 
+                      })}
+                    />
                     {errors.invoiceId && <p className="text-xs text-red-500">{errors.invoiceId.message}</p>}
+                    {!isOpenInvoicesLoading && openInvoices.filter(inv => {
+                      const balance = Number(inv.balanceDue || 0);
+                      return balance > 1;
+                    }).length === 0 && (
+                      <p className="text-xs text-muted-foreground">No invoices with remaining balance</p>
+                    )}
                   </div>
 
                   <div className="space-y-2">

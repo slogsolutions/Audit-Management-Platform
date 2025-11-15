@@ -107,13 +107,18 @@ async function getOpenInvoices(req, res, next) {
       
       const balanceDue = new Decimal(invoice.expectedAmount).sub(totalPaid);
       
+      // Round to 2 decimal places
+      const balanceDueRounded = parseFloat(balanceDue.toFixed(2));
+      
       return {
         ...invoice,
         totalPaid: totalPaid.toString(),
-        balanceDue: balanceDue.toString(),
+        balanceDue: balanceDueRounded.toString(),
       };
     }).filter(invoice => {
-      return new Decimal(invoice.balanceDue).greaterThan(0);
+      // Only include invoices with balance > 1 (allowing 1 rupee tolerance for rounding)
+      const balance = parseFloat(invoice.balanceDue);
+      return balance > 1;
     });
 
     res.status(200).json(openInvoices);
