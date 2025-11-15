@@ -1,76 +1,188 @@
 // controllers/transactionsController.js
 const prisma = require('../prismaClient');
+const { Decimal } = require('@prisma/client/runtime/library');
+
+
+// async function createTransaction(req, res, next) {
+//   try {
+//     const {
+//       createdById,
+//       type,
+//       amount,
+//       categoryId,
+//       subcategoryId,
+//       note,
+//       employee,
+//       reference,
+//       date,
+//       extraDetails,
+//       invoiceId,
+//       reconciliationNote
+//     } = req.body;
+//        console.log(  createdById,
+//       type,
+//       amount,
+//       categoryId,
+//       subcategoryId,
+//       note,
+//       employee,
+//       reference,
+//       date,
+//       extraDetails,
+//       invoiceId,
+//       reconciliationNote)
+
+//     if (!createdById || !type || !amount || !categoryId) {
+//       return res.status(400).json({ error: 'createdById, type, amount, categoryId are required' });
+//     }
+//     console.log("2")
+//     if (!['credit', 'debit'].includes(type)) {
+//       return res.status(400).json({ error: 'type must be credit or debit' });
+//     }
+//      console.log("3")
+//     // Validate user
+//     const user = await prisma.user.findUnique({ where: { id: Number(createdById) }});
+//     if (!user) return res.status(400).json({ error: 'createdBy user not found' });
+//       console.log("4")
+//     // Validate category (primary)
+//     const category = await prisma.category.findUnique({ where: { id: Number(categoryId) }});
+//     if (!category) return res.status(400).json({ error: 'category not found' });
+//    console.log("5")
+//     // If subcategory provided, validate it and ensure it is child of categoryId
+//     if (subcategoryId) {
+//       const sub = await prisma.category.findUnique({ where: { id: Number(subcategoryId) }});
+//       if (!sub) return res.status(400).json({ error: 'subcategory not found' });
+//       // ensure sub.parentId equals categoryId (enforce hierarchy)
+//       if (sub.parentId !== Number(categoryId)) {
+//         return res.status(400).json({ error: 'subcategory is not a child of the provided category' });
+//       }
+//     }
+
+//     // Validate invoice if provided
+//     if (invoiceId) {
+//       const invoice = await prisma.invoice.findUnique({ where: { id: Number(invoiceId) }});
+//       if (!invoice) return res.status(400).json({ error: 'invoice not found' });
+//     }
+
+//     const tx = await prisma.transaction.create({
+//       data: {
+//         createdById: Number(createdById),
+//         type,
+//         amount: amount.toString(),
+//         categoryId: Number(categoryId),
+//         subcategoryId: subcategoryId ? Number(subcategoryId) : null,
+//         note,
+//         employee,
+//         reference,
+//         extraDetails: extraDetails || null,
+//         date: date ? new Date(date) : undefined,
+//         invoiceId: invoiceId ? Number(invoiceId) : null,
+//         reconciliationNote: reconciliationNote || null
+//       },
+//       include: {
+//         category: true,
+//         subcategory: true,
+//         createdBy: true,
+//         invoice: true
+//       }
+//     });
+
+//     res.json(tx);
+//   } catch (err) {
+//     console.log(err,"error from createTransaction")
+//     next(err);
+//   }
+// }
 
 async function createTransaction(req, res, next) {
-  try {
-    const {
-      createdById,
-      type,
-      amount,
-      categoryId,
-      subcategoryId,
-      note,
-      employee,
-      reference,
-      date,
-      extraDetails
-    } = req.body;
+  try {
+    const {
+      createdById,
+      type,
+      amount,
+      categoryId,
+      subcategoryId,
+      note,
+      employee,
+      reference,
+      date,
+      extraDetails,
+      invoiceId,
+      reconciliationNote
+    } = req.body;
+ 
 
-    if (!createdById || !type || !amount || !categoryId) {
-      return res.status(400).json({ error: 'createdById, type, amount, categoryId are required' });
-    }
-    if (!['credit', 'debit'].includes(type)) {
-      return res.status(400).json({ error: 'type must be credit or debit' });
-    }
+    if (!createdById || !type || !amount || !categoryId) {
+      return res.status(400).json({ error: 'createdById, type, amount, categoryId are required' });
+    }
+//     console.log("2")
 
-    // Validate user
-    const user = await prisma.user.findUnique({ where: { id: Number(createdById) }});
-    if (!user) return res.status(400).json({ error: 'createdBy user not found' });
+    // --- THIS IS THE FIX ---
+    // Check for UPPERCASE to match your Prisma Enum
+    if (!['CREDIT', 'DEBIT'].includes(type)) {
+      return res.status(400).json({ error: 'type must be CREDIT or DEBIT' });
+    }
+    // --- END OF FIX ---
 
-    // Validate category (primary)
-    const category = await prisma.category.findUnique({ where: { id: Number(categoryId) }});
-    if (!category) return res.status(400).json({ error: 'category not found' });
+//      console.log("3")
+    // Validate user
+    const user = await prisma.user.findUnique({ where: { id: Number(createdById) }});
+    if (!user) return res.status(400).json({ error: 'createdBy user not found' });
+//       console.log("4")
+    // Validate category (primary)
+    const category = await prisma.category.findUnique({ where: { id: Number(categoryId) }});
+    if (!category) return res.status(400).json({ error: 'category not found' });
+//    console.log("5")
+    // If subcategory provided, validate it and ensure it is child of categoryId
+    if (subcategoryId) {
+      const sub = await prisma.category.findUnique({ where: { id: Number(subcategoryId) }});
+      if (!sub) return res.status(400).json({ error: 'subcategory not found' });
+      // ensure sub.parentId equals categoryId (enforce hierarchy)
+      if (sub.parentId !== Number(categoryId)) {
+        return res.status(400).json({ error: 'subcategory is not a child of the provided category' });
+      }
+    }
 
-    // If subcategory provided, validate it and ensure it is child of categoryId
-    if (subcategoryId) {
-      const sub = await prisma.category.findUnique({ where: { id: Number(subcategoryId) }});
-      if (!sub) return res.status(400).json({ error: 'subcategory not found' });
-      // ensure sub.parentId equals categoryId (enforce hierarchy)
-      if (sub.parentId !== Number(categoryId)) {
-        return res.status(400).json({ error: 'subcategory is not a child of the provided category' });
-      }
-    }
+    // Validate invoice if provided
+    if (invoiceId) {
+      const invoice = await prisma.invoice.findUnique({ where: { id: Number(invoiceId) }});
+      if (!invoice) return res.status(400).json({ error: 'invoice not found' });
+    }
 
-    const tx = await prisma.transaction.create({
-      data: {
-        createdById: Number(createdById),
-        type,
-        amount: amount.toString(),
-        categoryId: Number(categoryId),
-        subcategoryId: subcategoryId ? Number(subcategoryId) : null,
-        note,
-        employee,
-        reference,
-        extraDetails: extraDetails || null,
-        date: date ? new Date(date) : undefined
-      },
-      include: {
-        category: true,
-        subcategory: true,
-        createdBy: true
-      }
-    });
+    const tx = await prisma.transaction.create({
+      data: {
+        createdById: Number(createdById),
+        type, // This will correctly be "CREDIT" or "DEBIT"
+        amount: amount.toString(),
+        categoryId: Number(categoryId),
+        subcategoryId: subcategoryId ? Number(subcategoryId) : null,
+        note,
+        employee,
+        reference,
+        extraDetails: extraDetails || null,
+        date: date ? new Date(date) : undefined,
+        invoiceId: invoiceId ? Number(invoiceId) : null,
+        reconciliationNote: reconciliationNote || null
+      },
+      include: {
+        category: true,
+        subcategory: true,
+        createdBy: true,
+        invoice: true
+      }
+    });
 
-    res.json(tx);
-  } catch (err) {
-    next(err);
-  }
+    res.json(tx);
+  } catch (err) {
+    console.log(err,"error from createTransaction")
+    next(err);
+  }
 }
 
 async function getTransactions(req, res, next) {
   try {
     const {
-      userId, from, to, type, categoryId, subcategoryId, search, limit = 50, skip = 0
+      userId, from, to, type, categoryId, subcategoryId, search, limit = 50, skip = 0, invoiceId
     } = req.query;
 
     const where = {};
@@ -78,13 +190,15 @@ async function getTransactions(req, res, next) {
     if (type) where.type = type;
     if (categoryId) where.categoryId = Number(categoryId);
     if (subcategoryId) where.subcategoryId = Number(subcategoryId);
+    if (invoiceId) where.invoiceId = Number(invoiceId);
     if (from || to) where.date = {};
     if (from) where.date.gte = new Date(from);
     if (to) where.date.lte = new Date(to);
     if (search) where.OR = [
       { note: { contains: search, mode: 'insensitive' } },
       { employee: { contains: search, mode: 'insensitive' } },
-      { reference: { contains: search, mode: 'insensitive' } }
+      { reference: { contains: search, mode: 'insensitive' } },
+      { reconciliationNote: { contains: search, mode: 'insensitive' } }
     ];
 
     const [transactions, total] = await Promise.all([
@@ -96,7 +210,8 @@ async function getTransactions(req, res, next) {
         include: {
           category: true,
           subcategory: true,
-          createdBy: true
+          createdBy: true,
+          invoice: true
         }
       }),
       prisma.transaction.count({ where })
@@ -113,7 +228,12 @@ async function getTransactionById(req, res, next) {
     const { id } = req.params;
     const tx = await prisma.transaction.findUnique({
       where: { id: Number(id) },
-      include: { category: true, subcategory: true, createdBy: true }
+      include: {
+        category: true,
+        subcategory: true,
+        createdBy: true,
+        invoice: true
+      }
     });
     if (!tx) return res.status(404).json({ error: 'Transaction not found' });
     res.json(tx);
@@ -138,10 +258,21 @@ async function updateTransaction(req, res, next) {
       if (!sub) return res.status(400).json({ error: 'subcategory not found' });
     }
 
+    // Validate invoice if provided
+    if (data.invoiceId) {
+      const invoice = await prisma.invoice.findUnique({ where: { id: Number(data.invoiceId) }});
+      if (!invoice) return res.status(400).json({ error: 'invoice not found' });
+    }
+
     const tx = await prisma.transaction.update({
       where: { id: Number(id) },
       data,
-      include: { category: true, subcategory: true, createdBy: true }
+      include: {
+        category: true,
+        subcategory: true,
+        createdBy: true,
+        invoice: true
+      }
     });
     res.json(tx);
   } catch (err) {

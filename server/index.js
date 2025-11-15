@@ -7,6 +7,7 @@ const categoriesRoute = require('./routes/categories');
 const transactionsRoute = require('./routes/transactions');
 const reportsRoute = require('./routes/reports');
 const authRoutes = require('./routes/auth');
+const invoicesRoute = require('./routes/invoices');
 const errorHandler = require('./middlewares/errorHandler');
 
 const app = express();
@@ -19,6 +20,7 @@ app.use('/api/users', usersRoute);
 app.use('/api/categories', categoriesRoute);
 app.use('/api/transactions', transactionsRoute);
 app.use('/api/reports', reportsRoute);
+app.use('/api/invoices', invoicesRoute);
 
 // health
 app.get('/health', (req, res) => res.json({ ok: true }));

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Home, List, Users, Layers, Menu, X } from 'lucide-react';
+import { Home, List, Users, Layers, Menu, X, FileText } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export default function Sidebar({ collapsed, onCollapse }) {
@@ -8,6 +8,7 @@ export default function Sidebar({ collapsed, onCollapse }) {
   const items = [
     { to: '/dashboard', label: 'Dashboard', icon: Home },
     { to: '/transactions', label: 'Transactions', icon: List },
+    { to: '/invoices', label: 'Invoices', icon: FileText },
     { to: '/users', label: 'Users', icon: Users },
     { to: '/categories', label: 'Categories', icon: Layers }
   ];

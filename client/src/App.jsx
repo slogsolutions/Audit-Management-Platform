@@ -15,6 +15,7 @@ import Dashboard from './pages/Dashboard';
 import Transactions from './pages/Transactions';
 import Users from './pages/Users';
 import Categories from './pages/Categories';
+import Invoices from './pages/Invoices';
 
 /**
  * ProtectedRoute - inline component that redirects to /login when not authenticated.
@@ -69,6 +70,7 @@ export default function App() {
                     <Route path="/transactions" element={<Transactions />} />
                     <Route path="/users" element={<Users />} />
                     <Route path="/categories" element={<Categories />} />
+                    <Route path="/invoices" element={<Invoices />} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>
                 </main>

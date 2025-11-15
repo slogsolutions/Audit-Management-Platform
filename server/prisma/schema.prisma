@@ -58,8 +58,8 @@ model Category {
 // ---------------------------------------------
 model Invoice {
   id             Int       @id @default(autoincrement())
-  invoiceNumber  String    @unique // A unique number like "INV-2025-001"
-  expectedAmount Decimal   @db.Decimal(18, 2) // The total amount you asked for (e.g., 1000)
+  invoiceNumber  String    @unique
+  expectedAmount Decimal   @db.Decimal(18, 2)
   clientName     String?
   issuedAt       DateTime  @default(now())
   dueDate        DateTime?
@@ -69,7 +69,12 @@ model Invoice {
 
   createdAt      DateTime      @default(now())
 
+  // --- ADD THIS LINE ---
+  externalId     String?   @unique // The ID from the OTHER backend (Django)
+
   @@index([invoiceNumber])
+  // --- AND ADD THIS LINE ---
+  @@index([externalId])
 }
 
 // ---------------------------------------------
