@@ -64,9 +64,10 @@ export default function Sidebar({ collapsed, onCollapse }) {
       {/* Footer - Fixed at bottom */}
       {!collapsed && (
         <div className="p-4 border-t border-sidebar-border text-xs text-sidebar-foreground/60 shrink-0">
-          <p>© 2024 ExpenseFlow</p>
+          <p>© 2024 Slog Solutions.pvt.ltd</p>
         </div>
       )}
     </aside>
   );
 }
+ 

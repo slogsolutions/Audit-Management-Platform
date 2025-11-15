@@ -15,17 +15,24 @@ import {
 import Modal from '../components/Modal';
 import {
   Plus, Edit, Trash2, Search,
-  FileText, Calendar, IndianRupee , User,
+  FileText, Calendar, IndianRupee, User,
   CheckCircle, XCircle, AlertCircle,
   CreditCard,
   RefreshCw,
-  AlertTriangle 
+  AlertTriangle,
+  Download,
+  FileSpreadsheet,
+  Eye,
+  ArrowRight,
+  Tag
 } from 'lucide-react';
 import { toast } from 'sonner';
 import dayjs from 'dayjs';
 import { cn } from '@/lib/utils';
 import { AmountInput } from '@/components/ui/AmountInput';
 import { formatCurrency } from '@/lib/formatNumber';
+import * as XLSX from 'xlsx';
+import Papa from 'papaparse';
 
 async function fetchCategories() {
   const res = await api.get('/categories', { params: { includeAll: true } });
@@ -42,10 +49,16 @@ async function fetchOpenInvoices() {
   return res.data ?? [];
 }
 
+async function fetchInvoiceById(id) {
+  const res = await api.get(`/invoices/${id}`);
+  return res.data;
+}
+
 export default function Invoices() {
   const [viewMode, setViewMode] = useState('all'); // 'all' or 'open'
   const [searchTerm, setSearchTerm] = useState('');
   const [modal, setModal] = useState({ open: false, invoice: null });
+  const [detailModal, setDetailModal] = useState({ open: false, invoiceId: null });
   const qc = useQueryClient();
 
   const [deleteModal, setDeleteModal] = useState({ open: false, id: null });
@@ -63,6 +76,13 @@ export default function Invoices() {
   const { data: invoices = [], isLoading } = useQuery({
     queryKey: ['invoices', viewMode],
     queryFn: viewMode === 'open' ? fetchOpenInvoices : fetchInvoices
+  });
+
+  // Fetch invoice details when detail modal opens
+  const { data: invoiceDetails, isLoading: isLoadingDetails } = useQuery({
+    queryKey: ['invoiceDetails', detailModal.invoiceId],
+    queryFn: () => fetchInvoiceById(detailModal.invoiceId),
+    enabled: !!detailModal.invoiceId && detailModal.open
   });
 
   // categories query
@@ -85,6 +105,7 @@ export default function Invoices() {
     mutationFn: ({ id, payload }) => api.patch(`/invoices/${id}`, payload).then(r => r.data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['invoices'] });
+      qc.invalidateQueries({ queryKey: ['invoiceDetails'] });
       toast.success('Invoice updated successfully');
       setModal({ open: false, invoice: null });
     },
@@ -106,6 +127,7 @@ export default function Invoices() {
     mutationFn: payload => api.post('/transactions', payload).then(r => r.data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['invoices'] });
+      qc.invalidateQueries({ queryKey: ['invoiceDetails'] });
       qc.invalidateQueries({ queryKey: ['transactions'] });
       toast.success('Payment recorded successfully');
       setPaymentModal({ open: false, invoice: null });
@@ -150,14 +172,22 @@ export default function Invoices() {
     setModal({ open: true, invoice });
   }
 
-  function openPaymentModal(invoice) {
+  function openDetail(invoiceId) {
+    setDetailModal({ open: true, invoiceId });
+  }
+
+  function closeDetail() {
+    setDetailModal({ open: false, invoiceId: null });
+  }
+
+  function handlePaymentClick(invoice) {
     const balanceDue = Number(invoice.balanceDue || 0);
     setPaymentFormData({
       amount: balanceDue > 0 ? String(balanceDue) : String(Number(invoice.expectedAmount || 0)),
       date: dayjs().format('YYYY-MM-DD'),
       categoryId: '',
       subcategoryId: '',
-      note: `Payment for ${invoice.invoiceNumber}`
+      note: ''
     });
     setPaymentModal({ open: true, invoice });
   }
@@ -206,6 +236,117 @@ export default function Invoices() {
     }
   }
 
+  function onExportCSV() {
+    const rows = filteredInvoices.map(inv => ({
+      'Invoice Number': inv.invoiceNumber,
+      'Client Name': inv.clientName || '-',
+      'Expected Amount': Number(inv.expectedAmount),
+      'Total Paid': Number(inv.totalPaid || 0),
+      'Balance Due': Number(inv.balanceDue || 0),
+      'Due Date': inv.dueDate ? dayjs(inv.dueDate).format('YYYY-MM-DD') : '-',
+      'Created At': dayjs(inv.createdAt).format('YYYY-MM-DD'),
+      'Status': Number(inv.balanceDue || 0) <= 0 ? 'Paid' : 'Open'
+    }));
+
+    const csv = Papa.unparse(rows);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `invoices-${dayjs().format('YYYY-MM-DD')}-${Date.now()}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success('CSV exported successfully');
+  }
+
+  function onExportExcel() {
+    try {
+      // Prepare invoice data
+      const invoiceRows = filteredInvoices.map(inv => ({
+        'Invoice Number': inv.invoiceNumber,
+        'Client Name': inv.clientName || '-',
+        'Expected Amount': Number(inv.expectedAmount),
+        'Total Paid': Number(inv.totalPaid || 0),
+        'Balance Due': Number(inv.balanceDue || 0),
+        'Due Date': inv.dueDate ? dayjs(inv.dueDate).format('YYYY-MM-DD') : '-',
+        'Created At': dayjs(inv.createdAt).format('YYYY-MM-DD'),
+        'Status': Number(inv.balanceDue || 0) <= 0 ? 'Paid' : 'Open'
+      }));
+
+      // Create Summary Sheet
+      const summaryData = [
+        ['Invoice Export Summary'],
+        [''],
+        ['Export Date', dayjs().format('YYYY-MM-DD HH:mm:ss')],
+        ['View Mode', viewMode === 'all' ? 'All Invoices' : 'Open Invoices'],
+        ['Total Invoices', filteredInvoices.length],
+        [''],
+        ['Totals:'],
+        ['Total Expected', formatCurrency(totalExpected)],
+        ['Total Paid', formatCurrency(totalPaid)],
+        ['Total Balance Due', formatCurrency(totalDue)],
+        [''],
+        ['Invoice Details:']
+      ];
+
+      // Add headers
+      summaryData.push([
+        'Invoice Number', 'Client Name', 'Expected Amount', 'Total Paid', 'Balance Due', 'Status'
+      ]);
+
+      // Add invoice rows to summary
+      filteredInvoices.forEach(inv => {
+        summaryData.push([
+          inv.invoiceNumber,
+          inv.clientName || '-',
+          formatCurrency(inv.expectedAmount),
+          formatCurrency(inv.totalPaid || 0),
+          formatCurrency(inv.balanceDue || 0),
+          Number(inv.balanceDue || 0) <= 0 ? 'Paid' : 'Open'
+        ]);
+      });
+
+      // Create workbook
+      const wb = XLSX.utils.book_new();
+
+      // Create Summary sheet
+      const wsSummary = XLSX.utils.aoa_to_sheet(summaryData);
+      wsSummary['!cols'] = [
+        { wch: 20 }, { wch: 30 }
+      ];
+
+      // Create Invoices sheet
+      const wsInvoices = XLSX.utils.json_to_sheet(invoiceRows);
+      wsInvoices['!cols'] = [
+        { wch: 18 }, // Invoice Number
+        { wch: 25 }, // Client Name
+        { wch: 15 }, // Expected Amount
+        { wch: 15 }, // Total Paid
+        { wch: 15 }, // Balance Due
+        { wch: 12 }, // Due Date
+        { wch: 12 }, // Created At
+        { wch: 10 }  // Status
+      ];
+
+      // Merge title cell in Summary
+      if (!wsSummary['!merges']) wsSummary['!merges'] = [];
+      wsSummary['!merges'].push({ s: { r: 0, c: 0 }, e: { r: 0, c: 1 } });
+
+      // Add sheets to workbook
+      XLSX.utils.book_append_sheet(wb, wsSummary, 'Summary');
+      XLSX.utils.book_append_sheet(wb, wsInvoices, 'Invoices');
+
+      // Generate Excel file
+      const fileName = `invoices-${dayjs().format('YYYY-MM-DD')}-${Date.now()}.xlsx`;
+      XLSX.writeFile(wb, fileName);
+      
+      toast.success('Excel file exported successfully!');
+    } catch (error) {
+      console.error('Excel export error:', error);
+      toast.error('Failed to export Excel file');
+    }
+  }
+
   const filteredInvoices = invoices.filter(inv =>
     (inv.invoiceNumber || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
     (inv.clientName || '').toLowerCase().includes(searchTerm.toLowerCase())
@@ -219,6 +360,12 @@ export default function Invoices() {
   const subcategories = paymentFormData.categoryId
     ? categories.filter(cat => cat.parentId === Number(paymentFormData.categoryId))
     : [];
+
+  // Calculate payment details for invoice detail modal
+  const paymentDetails = invoiceDetails?.payments || [];
+  const sortedPayments = [...paymentDetails].sort((a, b) => 
+    new Date(b.date) - new Date(a.date)
+  );
 
   return (
     <div className="space-y-6 animate-in fade-in-0 duration-500">
@@ -235,7 +382,23 @@ export default function Invoices() {
             </p>
           </div>
           
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
+            <Button
+              variant="outline"
+              onClick={onExportCSV}
+              className="bg-white/10 text-white border-white/30 hover:bg-white/20"
+            >
+              <Download className="w-4 h-4 mr-2" />
+              Export CSV
+            </Button>
+            <Button
+              variant="outline"
+              onClick={onExportExcel}
+              className="bg-white/10 text-white border-white/30 hover:bg-white/20"
+            >
+              <FileSpreadsheet className="w-4 h-4 mr-2" />
+              Export Excel
+            </Button>
             <Button
               onClick={() => syncMut.mutate()}
               variant="outline"
@@ -260,7 +423,6 @@ export default function Invoices() {
               New Invoice
             </Button>
           </div>
-          
         </div>
       </div>
 
@@ -354,7 +516,8 @@ export default function Invoices() {
                   return (
                     <div
                       key={invoice.id}
-                      className="group relative overflow-hidden rounded-xl border bg-card hover:shadow-lg transition-all duration-300"
+                      className="group relative overflow-hidden rounded-xl border bg-card hover:shadow-lg transition-all duration-300 cursor-pointer"
+                      onClick={() => openDetail(invoice.id)}
                     >
                       <div className="p-6">
                         <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
@@ -398,69 +561,62 @@ export default function Invoices() {
                                 <p className="text-xs text-muted-foreground mb-1">Due</p>
                                 <p className={cn(
                                   "font-semibold",
-                                  isPaid ? "text-green-600" : "text-orange-600"
+                                  balanceDue > 0 ? "text-orange-600" : "text-green-600"
                                 )}>
                                   {formatCurrency(balanceDue)}
                                 </p>
                               </div>
                               <div>
-                                <p className="text-xs text-muted-foreground mb-1">Due Date</p>
-                                <div className="flex items-center gap-1">
-                                  <Calendar className="h-3 w-3 text-muted-foreground" />
-                                  <p className="font-semibold text-sm">
-                                    {invoice.dueDate ? dayjs(invoice.dueDate).format('MMM DD, YYYY') : 'N/A'}
-                                  </p>
+                                <p className="text-xs text-muted-foreground mb-1">Progress</p>
+                                <div className="flex items-center gap-2">
+                                  <div className="flex-1 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                                    <div
+                                      className={cn(
+                                        "h-full transition-all",
+                                        isPaid ? "bg-green-500" : "bg-orange-500"
+                                      )}
+                                      style={{ width: `${Math.min(100, progress)}%` }}
+                                    />
+                                  </div>
+                                  <span className="font-medium text-xs">{progress.toFixed(0)}%</span>
                                 </div>
-                              </div>
-                            </div>
-
-                            <div className="space-y-1">
-                              <div className="flex items-center justify-between text-xs">
-                                <span className="text-muted-foreground">Payment Progress</span>
-                                <span className="font-medium">{progress.toFixed(0)}%</span>
-                              </div>
-                              <div className="h-2 bg-muted rounded-full overflow-hidden">
-                                <div
-                                  className={cn(
-                                    "h-full transition-all duration-300",
-                                    isPaid ? "bg-green-500" : "bg-orange-500"
-                                  )}
-                                  style={{ width: `${Math.min(progress, 100)}%` }}
-                                />
                               </div>
                             </div>
                           </div>
 
-                          <div className="flex flex-wrap gap-2 pt-4 border-t mt-4 md:border-t-0 md:pt-0 md:mt-0 md:flex-col md:items-end">
-                            <Button
-                              size="sm"
-                              className="bg-green-600 hover:bg-green-700 text-white w-full md:w-auto"
-                              onClick={() => openPaymentModal(invoice)}
-                              disabled={isPaid}
-                            >
-                              <CreditCard className="w-4 h-4 mr-2" />
-                              Record Payment
-                            </Button>
-
+                          <div className="flex items-center gap-2">
                             <Button
                               variant="outline"
                               size="sm"
-                              className="w-full md:w-auto"
-                              onClick={() => openEdit(invoice)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openDetail(invoice.id);
+                              }}
+                              className="hover:bg-blue-50"
                             >
-                              <Edit className="w-4 h-4 mr-2" />
-                              Edit
+                              <Eye className="h-4 w-4 mr-2" />
+                              View Details
                             </Button>
-                            
-                            {/* This is the button you wanted styled. It already has the text-destructive class! */}
                             <Button
-                              variant="ghost"
+                              variant="outline"
                               size="sm"
-                              className="text-destructive hover:text-destructive hover:bg-destructive/10 w-full md:w-auto"
-                              onClick={() => onDelete(invoice.id)} 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openEdit(invoice);
+                              }}
                             >
-                              <Trash2 className="w-4 h-4 mr-2" />
-                              Delete
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onDelete(invoice.id);
+                              }}
+                              className="text-destructive hover:text-destructive"
+                            >
+                              <Trash2 className="h-4 w-4" />
                             </Button>
                           </div>
                         </div>
@@ -473,6 +629,188 @@ export default function Invoices() {
           )}
         </CardContent>
       </Card>
+
+      {/* Invoice Detail Modal */}
+      <Modal
+        open={detailModal.open}
+        onClose={closeDetail}
+        title={invoiceDetails ? `Invoice Details - ${invoiceDetails.invoiceNumber}` : 'Invoice Details'}
+        size="large"
+      >
+        {isLoadingDetails ? (
+          <div className="text-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto" />
+            <p className="text-muted-foreground mt-4">Loading invoice details...</p>
+          </div>
+        ) : invoiceDetails ? (
+          <div className="space-y-6">
+            {/* Invoice Summary */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-gradient-to-br from-blue-50 to-teal-50 dark:from-blue-900/20 dark:to-teal-900/20 rounded-lg">
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Invoice Number</p>
+                <p className="text-lg font-bold">{invoiceDetails.invoiceNumber}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Client Name</p>
+                <p className="text-lg font-semibold">{invoiceDetails.clientName || 'N/A'}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Expected Amount</p>
+                <p className="text-xl font-bold text-blue-600">{formatCurrency(invoiceDetails.expectedAmount)}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Due Date</p>
+                <p className="text-lg font-medium">
+                  {invoiceDetails.dueDate ? dayjs(invoiceDetails.dueDate).format('MMM DD, YYYY') : 'Not set'}
+                </p>
+              </div>
+            </div>
+
+            {/* Payment Summary Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Card className="border-0 shadow-md">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">Total Paid</p>
+                      <p className="text-xl font-bold text-green-600">
+                        {formatCurrency(invoiceDetails.totalPaid || 0)}
+                      </p>
+                    </div>
+                    <CheckCircle className="h-8 w-8 text-green-600" />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-0 shadow-md">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">Balance Due</p>
+                      <p className={cn(
+                        "text-xl font-bold",
+                        Number(invoiceDetails.balanceDue || 0) > 0 ? "text-orange-600" : "text-green-600"
+                      )}>
+                        {formatCurrency(invoiceDetails.balanceDue || 0)}
+                      </p>
+                    </div>
+                    {Number(invoiceDetails.balanceDue || 0) > 0 ? (
+                      <AlertCircle className="h-8 w-8 text-orange-600" />
+                    ) : (
+                      <CheckCircle className="h-8 w-8 text-green-600" />
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-0 shadow-md">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">Payment Progress</p>
+                      <p className="text-xl font-bold">
+                        {Math.round((Number(invoiceDetails.totalPaid || 0) / Number(invoiceDetails.expectedAmount || 1)) * 100)}%
+                      </p>
+                    </div>
+                    <div className="h-12 w-12 rounded-full bg-gradient-to-br from-blue-500 to-teal-500 flex items-center justify-center">
+                      <CreditCard className="h-6 w-6 text-white" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Payment History */}
+            <div>
+              <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                <CreditCard className="h-5 w-5" />
+                Payment History ({sortedPayments.length} payments)
+              </h3>
+              {sortedPayments.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground border border-dashed rounded-lg">
+                  <CreditCard className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                  <p>No payments recorded yet</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {sortedPayments.map((payment, index) => (
+                    <Card key={payment.id} className="border-0 shadow-sm">
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-4">
+                            <div className="h-10 w-10 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center">
+                              <span className="text-white font-bold text-sm">{index + 1}</span>
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2 mb-1">
+                                <Calendar className="h-4 w-4 text-muted-foreground" />
+                                <span className="font-medium">
+                                  {dayjs(payment.date).format('MMM DD, YYYY')}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                <Tag className="h-3 w-3" />
+                                <span>{payment.category?.name || 'N/A'}</span>
+                                {payment.subcategory && (
+                                  <>
+                                    <ArrowRight className="h-3 w-3" />
+                                    <span>{payment.subcategory.name}</span>
+                                  </>
+                                )}
+                              </div>
+                              {payment.note && (
+                                <p className="text-xs text-muted-foreground mt-1">{payment.note}</p>
+                              )}
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-xl font-bold text-green-600">
+                              {formatCurrency(payment.amount)}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              by {payment.createdBy?.name || 'Unknown'}
+                            </p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-3 pt-4 border-t">
+              <Button
+                onClick={() => {
+                  closeDetail();
+                  handlePaymentClick(invoiceDetails);
+                }}
+                className="flex-1 bg-gradient-primary text-white"
+                disabled={Number(invoiceDetails.balanceDue || 0) <= 0}
+              >
+                <CreditCard className="h-4 w-4 mr-2" />
+                Record Payment
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  closeDetail();
+                  openEdit(invoiceDetails);
+                }}
+                className="flex-1"
+              >
+                <Edit className="h-4 w-4 mr-2" />
+                Edit Invoice
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="text-center py-12 text-muted-foreground">
+            Invoice not found
+          </div>
+        )}
+      </Modal>
 
       {/* Create/Edit Modal */}
       <Modal
