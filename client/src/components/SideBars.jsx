@@ -16,11 +16,11 @@ export default function Sidebar({ collapsed, onCollapse }) {
 
   return (
     <aside className={cn(
-      'bg-sidebar text-sidebar-foreground h-screen shadow-xl transition-all duration-300 flex flex-col',
+      'bg-sidebar text-sidebar-foreground h-full shadow-xl transition-all duration-300 flex flex-col',
       collapsed ? 'w-20' : 'w-64'
     )}>
       {/* Header */}
-      <div className="p-6 flex items-center justify-between border-b border-sidebar-border">
+      <div className="p-6 flex items-center justify-between border-b border-sidebar-border shrink-0">
         {!collapsed && (
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-lg bg-gradient-primary flex items-center justify-center shadow-glow">
@@ -38,8 +38,8 @@ export default function Sidebar({ collapsed, onCollapse }) {
         </button>
       </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 p-4 space-y-2">
+      {/* Navigation - Takes remaining space */}
+      <nav className="flex-1 p-4 space-y-2 overflow-y-auto min-h-0">
         {items.map(item => {
           const Icon = item.icon;
           const active = loc.pathname === item.to;
@@ -61,9 +61,9 @@ export default function Sidebar({ collapsed, onCollapse }) {
         })}
       </nav>
 
-      {/* Footer */}
+      {/* Footer - Fixed at bottom */}
       {!collapsed && (
-        <div className="p-4 border-t border-sidebar-border text-xs text-sidebar-foreground/60">
+        <div className="p-4 border-t border-sidebar-border text-xs text-sidebar-foreground/60 shrink-0">
           <p>© 2024 ExpenseFlow</p>
         </div>
       )}

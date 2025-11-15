@@ -61,9 +61,9 @@ export default function App() {
         path="/*"
         element={
           <ProtectedRoute>
-            <div className="min-h-screen flex bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-slate-800">
+            <div className="h-screen flex bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-slate-800 overflow-hidden">
               <Sidebar collapsed={collapsed} onCollapse={() => setCollapsed(c => !c)} />
-              <div className="flex-1 flex flex-col overflow-hidden">
+              <div className="flex-1 flex flex-col overflow-hidden min-w-0">
                 <Topbar />
                 <main className="flex-1 overflow-y-auto p-6">
                   <Routes>

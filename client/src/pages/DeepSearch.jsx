@@ -8,11 +8,12 @@ import { Label } from '@/components/ui/label';
 import {
   Search, Filter, Calendar, Tag, User, ArrowUpRight, ArrowDownRight,
   IndianRupee, TrendingUp, TrendingDown, BarChart3, PieChart, LineChart,
-  Download, X, ChevronDown, ChevronUp
+  Download, X, ChevronDown, ChevronUp, FileSpreadsheet
 } from 'lucide-react';
 import { toast } from 'sonner';
 import dayjs from 'dayjs';
 import Papa from 'papaparse';
+import * as XLSX from 'xlsx';
 import { formatCurrency } from '@/lib/formatNumber';
 import {
   Select,
@@ -183,26 +184,136 @@ export default function DeepSearch() {
     setDateTo('');
   }
 
-  function onExport() {
+  function onExportCSV() {
     const transactions = data?.transactions || [];
+    if (transactions.length === 0) {
+      toast.error('No data to export');
+      return;
+    }
+
     const rows = transactions.map(t => ({
-      date: dayjs(t.date).format('YYYY-MM-DD'),
-      type: t.type,
-      amount: t.amount,
-      category: t.category?.name,
-      subcategory: t.subcategory?.name,
-      user: t.createdBy?.name,
-      note: t.note,
-      reconciliationNote: t.reconciliationNote
+      Date: dayjs(t.date).format('YYYY-MM-DD'),
+      Type: t.type,
+      Amount: Number(t.amount),
+      Category: t.category?.name || 'Uncategorized',
+      Subcategory: t.subcategory?.name || '-',
+      User: t.createdBy?.name || 'Unknown',
+      Note: t.note || '-',
+      'Reconciliation Note': t.reconciliationNote || '-',
+      Invoice: t.invoice?.invoiceNumber || '-'
     }));
+
     const csv = Papa.unparse(rows);
-    const blob = new Blob([csv], { type: 'text/csv' });
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `deep-search-${Date.now()}.csv`;
+    a.download = `deep-search-${dayjs().format('YYYY-MM-DD')}-${Date.now()}.csv`;
     a.click();
-    toast.success('Export started');
+    URL.revokeObjectURL(url);
+    toast.success('CSV exported successfully');
+  }
+
+  function onExportExcel() {
+    const transactions = data?.transactions || [];
+    if (transactions.length === 0) {
+      toast.error('No data to export');
+      return;
+    }
+
+    try {
+      // Prepare transaction data
+      const transactionRows = transactions.map(t => ({
+        'Date': dayjs(t.date).format('YYYY-MM-DD'),
+        'Type': t.type,
+        'Amount': Number(t.amount),
+        'Category': t.category?.name || 'Uncategorized',
+        'Subcategory': t.subcategory?.name || '-',
+        'User': t.createdBy?.name || 'Unknown',
+        'Note': t.note || '-',
+        'Reconciliation Note': t.reconciliationNote || '-',
+        'Invoice Number': t.invoice?.invoiceNumber || '-',
+        'Invoice Client': t.invoice?.clientName || '-'
+      }));
+
+      // Create Summary Sheet
+      const summaryData = [
+        ['Deep Search Export Summary'],
+        [''],
+        ['Export Date', dayjs().format('YYYY-MM-DD HH:mm:ss')],
+        [''],
+        ['Filters Applied:'],
+        ['Type', typeFilter === 'all' ? 'All' : typeFilter],
+        ['Category', selectedCategory?.name || 'All'],
+        ['Subcategory', selectedSubcategory?.name || 'All'],
+        ['User', selectedUser?.name || 'All'],
+        ['Date From', dateFrom ? dayjs(dateFrom).format('YYYY-MM-DD') : 'All'],
+        ['Date To', dateTo ? dayjs(dateTo).format('YYYY-MM-DD') : 'All'],
+        ['Search Term', searchTerm || 'None'],
+        [''],
+        ['Calculations:'],
+        ['Total Credits', formatCurrency(calculations.totalCredits)],
+        ['Total Debits', formatCurrency(calculations.totalDebits)],
+        ['Net Balance', formatCurrency(calculations.balance)],
+        ['Total Transactions', calculations.transactionCount],
+        ['Credit Transactions', calculations.creditCount],
+        ['Debit Transactions', calculations.debitCount],
+        [''],
+        ['Category Breakdown:'],
+        ['Category', 'Total Amount']
+      ];
+
+      // Add category breakdown
+      calculations.categoryBreakdown.forEach(cat => {
+        summaryData.push([cat.name, formatCurrency(cat.value)]);
+      });
+
+      // Create workbook
+      const wb = XLSX.utils.book_new();
+
+      // Create Transactions sheet
+      const wsTransactions = XLSX.utils.json_to_sheet(transactionRows);
+      
+      // Set column widths for Transactions sheet
+      wsTransactions['!cols'] = [
+        { wch: 12 }, // Date
+        { wch: 10 }, // Type
+        { wch: 15 }, // Amount
+        { wch: 20 }, // Category
+        { wch: 20 }, // Subcategory
+        { wch: 15 }, // User
+        { wch: 30 }, // Note
+        { wch: 30 }, // Reconciliation Note
+        { wch: 15 }, // Invoice Number
+        { wch: 20 }  // Invoice Client
+      ];
+
+      // Create Summary sheet
+      const wsSummary = XLSX.utils.aoa_to_sheet(summaryData);
+      
+      // Set column widths for Summary sheet
+      wsSummary['!cols'] = [
+        { wch: 25 }, // Label
+        { wch: 30 }  // Value
+      ];
+
+      // Merge cells for title in Summary sheet
+      if (!wsSummary['!merges']) wsSummary['!merges'] = [];
+      wsSummary['!merges'].push({ s: { r: 0, c: 0 }, e: { r: 0, c: 1 } });
+
+      // Add sheets to workbook
+      XLSX.utils.book_append_sheet(wb, wsSummary, 'Summary');
+      XLSX.utils.book_append_sheet(wb, wsTransactions, 'Transactions');
+
+      // Generate Excel file
+      const fileName = `deep-search-${dayjs().format('YYYY-MM-DD')}-${Date.now()}.xlsx`;
+      XLSX.writeFile(wb, fileName);
+      
+      toast.success('Excel file exported successfully!');
+    } catch (error) {
+      console.error('Excel export error:', error);
+      toast.error('Failed to export Excel file');
+    }
   }
 
   const hasActiveFilters = typeFilter !== 'all' || categoryFilter || subcategoryFilter || userFilter || dateFrom || dateTo || searchTerm;
@@ -225,14 +336,24 @@ export default function DeepSearch() {
                 <p className="text-blue-100 text-sm mt-1">Advanced filtering with detailed calculations and visualizations</p>
               </div>
             </div>
-            <Button
-              variant="outline"
-              onClick={onExport}
-              className="bg-white/10 text-white border-white/20 hover:bg-white/20"
-            >
-              <Download className="h-4 w-4 mr-2" />
-              Export
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={onExportCSV}
+                className="bg-white/10 text-white border-white/20 hover:bg-white/20"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Export CSV
+              </Button>
+              <Button
+                variant="outline"
+                onClick={onExportExcel}
+                className="bg-white/10 text-white border-white/20 hover:bg-white/20"
+              >
+                <FileSpreadsheet className="h-4 w-4 mr-2" />
+                Export Excel
+              </Button>
+            </div>
           </div>
         </CardHeader>
       </Card>
