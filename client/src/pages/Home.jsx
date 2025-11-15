@@ -1,8 +1,10 @@
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ArrowRight, BarChart3, Shield, Zap, Users, TrendingUp, Lock, FileText } from 'lucide-react';
+import { useAuth } from '../context/AuthProvider';
 
 export default function Home() {
+  const { isAuthenticated, user } = useAuth();
   const features = [
     {
       icon: <BarChart3 className="w-6 h-6" />,
@@ -126,13 +128,32 @@ export default function Home() {
             <p className="text-xl text-muted-foreground">
               Join thousands of companies managing their expenses with ExpenseFlow
             </p>
-            <div className="flex items-center justify-center gap-4 pt-4">
-              <Link to="/register">
-                <Button size="lg" className="bg-gradient-primary text-white hover:opacity-90 text-lg px-8 h-12 shadow-glow">
-                  Create Account
-                  <ArrowRight className="ml-2 h-5 w-5" />
-                </Button>
-              </Link>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              {isAuthenticated ? (
+                <>
+                  <Link to="/dashboard">
+                    <Button size="lg" className="bg-gradient-primary text-white hover:opacity-90 shadow-lg">
+                      Go to Dashboard
+                    </Button>
+                  </Link>
+                  <p className="text-center text-muted-foreground">
+                    Welcome back, {user?.name}!
+                  </p>
+                </>
+              ) : (
+                <>
+                  <Link to="/login">
+                    <Button size="lg" className="bg-gradient-primary text-white hover:opacity-90 shadow-lg">
+                      Get Started
+                    </Button>
+                  </Link>
+                  <Link to="/register">
+                    <Button size="lg" variant="outline" className="border-2">
+                      Sign Up
+                    </Button>
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         </section>

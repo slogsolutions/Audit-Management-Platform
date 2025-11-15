@@ -16,6 +16,7 @@ import Transactions from './pages/Transactions';
 import Users from './pages/Users';
 import Categories from './pages/Categories';
 import Invoices from './pages/Invoices';
+import DeepSearch from './pages/DeepSearch';
 
 /**
  * ProtectedRoute - inline component that redirects to /login when not authenticated.
@@ -71,6 +72,7 @@ export default function App() {
                     <Route path="/users" element={<Users />} />
                     <Route path="/categories" element={<Categories />} />
                     <Route path="/invoices" element={<Invoices />} />
+                    <Route path="/deep-search" element={<DeepSearch />} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>
                 </main>

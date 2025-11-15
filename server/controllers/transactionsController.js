@@ -182,7 +182,8 @@ async function createTransaction(req, res, next) {
 async function getTransactions(req, res, next) {
   try {
     const {
-      userId, from, to, type, categoryId, subcategoryId, search, limit = 50, skip = 0, invoiceId
+      userId, from, to, type, categoryId, subcategoryId, search, limit = 50, skip = 0, invoiceId,
+      sortBy = 'date', sortOrder = 'desc'
     } = req.query;
 
     const where = {};
@@ -194,17 +195,34 @@ async function getTransactions(req, res, next) {
     if (from || to) where.date = {};
     if (from) where.date.gte = new Date(from);
     if (to) where.date.lte = new Date(to);
-    if (search) where.OR = [
-      { note: { contains: search, mode: 'insensitive' } },
-      { employee: { contains: search, mode: 'insensitive' } },
-      { reference: { contains: search, mode: 'insensitive' } },
-      { reconciliationNote: { contains: search, mode: 'insensitive' } }
-    ];
+    
+    // Enhanced search - includes user name search
+    if (search) {
+      where.OR = [
+        { note: { contains: search, mode: 'insensitive' } },
+        { employee: { contains: search, mode: 'insensitive' } },
+        { reference: { contains: search, mode: 'insensitive' } },
+        { reconciliationNote: { contains: search, mode: 'insensitive' } },
+        { createdBy: { name: { contains: search, mode: 'insensitive' } } },
+        { category: { name: { contains: search, mode: 'insensitive' } } },
+        { subcategory: { name: { contains: search, mode: 'insensitive' } } }
+      ];
+    }
+
+    // Sorting
+    const orderBy = {};
+    if (sortBy === 'amount') {
+      orderBy.amount = sortOrder === 'asc' ? 'asc' : 'desc';
+    } else if (sortBy === 'type') {
+      orderBy.type = sortOrder === 'asc' ? 'asc' : 'desc';
+    } else {
+      orderBy.date = sortOrder === 'asc' ? 'asc' : 'desc';
+    }
 
     const [transactions, total] = await Promise.all([
       prisma.transaction.findMany({
         where,
-        orderBy: { date: 'desc' },
+        orderBy,
         take: Number(limit),
         skip: Number(skip),
         include: {

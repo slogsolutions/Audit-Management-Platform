@@ -557,9 +557,9 @@ export default function Transactions() {
                 <div className="space-y-2">
                   <Label className="text-sm font-semibold">Subcategory (Optional)</Label>
                   <Select
-                    value={watch('subcategoryId') ? String(watch('subcategoryId')) : undefined}
+                    value={watch('subcategoryId') ? String(watch('subcategoryId')) : "none"}
                     onValueChange={(value) => {
-                      if (value === 'none') {
+                      if (value === "none") {
                         setValue('subcategoryId', '');
                       } else {
                         setValue('subcategoryId', value ? Number(value) : '');
@@ -570,7 +570,7 @@ export default function Transactions() {
                       <SelectValue placeholder="None" />
                     </SelectTrigger>
                     <SelectContent className="max-h-[220px] overflow-y-auto w-full min-w-[var(--radix-select-trigger-width)] bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-xl">
-                      <SelectItem value="none" className="py-2">None</SelectItem>
+                      <SelectItem value="none">None</SelectItem>
                       {subcategories.map(sub => (
                         <SelectItem key={sub.id} value={String(sub.id)} className="py-2">
                           {sub.name}
