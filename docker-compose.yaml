@@ -1,19 +1,18 @@
 services:
   server:
-    build: ./server
-    image: laksh2611/expense-server:latest  
+    image: laksh2611/expense-server:latest
     container_name: expenseManagement-server
     expose:
-      - "5012"          # visible to other containers
+      - "5012"
     env_file:
       - ./server/.env
     restart: always
+
   client:
-    build: ./client
     image: laksh2611/expense-client:latest
     container_name: expenseManagement-client
     ports:
-      - "80:80"         # server_ip:80 → client container 80 (Nginx)
+      - "8005:80"
     depends_on:
       - server
     restart: always
