@@ -23,7 +23,7 @@ app.use('/api/reports', reportsRoute);
 app.use('/api/invoices', invoicesRoute);
 
 // health
-app.get('/health', (req, res) => res.json({ ok: true }));
+app.get('/health', (req, res) => res.json({ ok: true , message: "working from backend audit"}));
 
 // error middleware
 app.use(errorHandler);
