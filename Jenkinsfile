@@ -1,38 +1,20 @@
 pipeline {
     agent any
 
-    environment {
-        DOCKERHUB_USER = "laksh2611"
-        SERVER_IMAGE   = "expense-server"
-        CLIENT_IMAGE   = "expense-client"
-        TAG            = "latest"
-
-        PROD_USER = "ubuntu"
-        PROD_HOST = "YOUR_SERVER_IP"
-        PROD_DIR  = "/var/www/expense-management"
-    }
-
     stages {
 
         stage('Checkout Code') {
             steps {
-                git branch: 'main', url: 'https://github.com/YOUR_REPO.git'
+                checkout scm
             }
         }
 
-        stage('Build Server Image') {
+        stage('Build Docker Images') {
             steps {
-                script {
-                    docker.build("${DOCKERHUB_USER}/${SERVER_IMAGE}:${TAG}", "./server")
-                }
-            }
-        }
-
-        stage('Build Client Image') {
-            steps {
-                script {
-                    docker.build("${DOCKERHUB_USER}/${CLIENT_IMAGE}:${TAG}", "./client")
-                }
+                sh """
+                  docker build -t laksh2611/expense-server:latest ./server
+                  docker build -t laksh2611/expense-client:latest ./client
+                """
             }
         }
 
@@ -43,9 +25,7 @@ pipeline {
                     usernameVariable: 'DOCKER_USER',
                     passwordVariable: 'DOCKER_PASS'
                 )]) {
-                    sh """
-                    echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
-                    """
+                    sh "echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin"
                 }
             }
         }
@@ -53,28 +33,34 @@ pipeline {
         stage('Push Images') {
             steps {
                 sh """
-                docker push ${DOCKERHUB_USER}/${SERVER_IMAGE}:${TAG}
-                docker push ${DOCKERHUB_USER}/${CLIENT_IMAGE}:${TAG}
+                  docker push laksh2611/expense-server:latest
+                  docker push laksh2611/expense-client:latest
                 """
             }
         }
 
-        stage('Deploy to Production') {
+        stage('Deploy to VPS') {
             steps {
                 sshagent(['prod-server-key']) {
-                    sh """
-                    ssh -o StrictHostKeyChecking=no ${PROD_USER}@${PROD_HOST} << 'EOF'
-                      cd ${PROD_DIR}
+                    withCredentials([
+                        string(credentialsId: 'PROD_HOST', variable: 'PROD_HOST'),
+                        string(credentialsId: 'PROD_USER', variable: 'PROD_USER'),
+                        string(credentialsId: 'PROD_DIR',  variable: 'PROD_DIR')
+                    ]) {
+                        sh """
+                        ssh -o StrictHostKeyChecking=no ${PROD_USER}@${PROD_HOST} '
+                          cd ${PROD_DIR}
 
-                      docker pull ${DOCKERHUB_USER}/${SERVER_IMAGE}:${TAG}
-                      docker pull ${DOCKERHUB_USER}/${CLIENT_IMAGE}:${TAG}
+                          docker pull laksh2611/expense-server:latest
+                          docker pull laksh2611/expense-client:latest
 
-                      docker-compose down
-                      docker-compose up -d
+                          docker compose down
+                          docker compose up -d
 
-                      docker image prune -f
-                    EOF
-                    """
+                          docker image prune -f
+                        '
+                        """
+                    }
                 }
             }
         }
@@ -82,10 +68,10 @@ pipeline {
 
     post {
         success {
-            echo "✅ Deployment successful!"
+            echo "✅ Deployment successful"
         }
         failure {
-            echo "❌ Deployment failed!"
+            echo "❌ Deployment failed"
         }
     }
 }
