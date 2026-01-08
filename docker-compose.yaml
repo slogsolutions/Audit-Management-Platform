@@ -2,7 +2,7 @@ services:
   server:
     image: laksh2611/expense-server:latest
     container_name: expenseManagement-server
-    expose:
+    ports:
       - "5012:5012"
     env_file:
       - ./server/.env
