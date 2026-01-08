@@ -3,7 +3,7 @@ services:
     image: laksh2611/expense-server:latest
     container_name: expenseManagement-server
     expose:
-      - "5012"
+      - "5012:5012"
     env_file:
       - ./server/.env
     restart: always
