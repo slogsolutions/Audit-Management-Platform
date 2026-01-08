@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, Outlet } from 'react-router-dom'; // Added Outlet
 import { useAuth } from './context/AuthProvider';
 import './App.css';
 
 // Layout & UI
 import Sidebar from './components/SideBars';
 import Topbar from './components/Topbar';
+import Navbar from './components/Navbar';
 
 // Pages
 import Home from './pages/Home';
@@ -19,7 +20,7 @@ import Invoices from './pages/Invoices';
 import DeepSearch from './pages/DeepSearch';
 
 /**
- * ProtectedRoute - inline component that redirects to /login when not authenticated.
+ * ProtectedRoute - redirects to /login when not authenticated.
  */
 function ProtectedRoute({ children }) {
   const { token } = useAuth();
@@ -28,8 +29,17 @@ function ProtectedRoute({ children }) {
 }
 
 /**
- * NotFound simple fallback
+ * PublicLayout - Wraps public pages to include the Navbar
  */
+function PublicLayout() {
+  return (
+    <>
+      <Navbar />
+      <Outlet /> {/* This renders the child route (Home, Login, etc) */}
+    </>
+  );
+}
+
 function NotFound() {
   return (
     <div className="min-h-screen flex items-center justify-center">
@@ -41,22 +51,21 @@ function NotFound() {
   );
 }
 
-/**
- * App - main app that contains routes and layout.
- * Sidebar/Topbar are rendered here so they appear across protected routes.
- */
 export default function App() {
   const [collapsed, setCollapsed] = useState(false);
   const { token } = useAuth();
 
   return (
     <Routes>
-      {/* Public routes */}
-      <Route path="/" element={<Home />} />
-      <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
+      {/* --- PUBLIC ROUTES (With Navbar) --- */}
+      <Route element={<PublicLayout />}>
+        {/* If user is logged in, hitting '/' sends them to dashboard, otherwise Home */}
+        <Route path="/" element={token ? <Navigate to="/dashboard" replace /> : <Home />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+      </Route>
 
-      {/* Protected routes with layout */}
+      {/* --- PROTECTED ROUTES (With Sidebar & Topbar) --- */}
       <Route
         path="/*"
         element={
@@ -67,12 +76,12 @@ export default function App() {
                 <Topbar />
                 <main className="flex-1 overflow-y-auto p-6">
                   <Routes>
-                    <Route path="/dashboard" element={<Dashboard />} />
-                    <Route path="/transactions" element={<Transactions />} />
-                    <Route path="/users" element={<Users />} />
-                    <Route path="/categories" element={<Categories />} />
-                    <Route path="/invoices" element={<Invoices />} />
-                    <Route path="/deep-search" element={<DeepSearch />} />
+                    <Route path="dashboard" element={<Dashboard />} />
+                    <Route path="transactions" element={<Transactions />} />
+                    <Route path="users" element={<Users />} />
+                    <Route path="categories" element={<Categories />} />
+                    <Route path="invoices" element={<Invoices />} />
+                    <Route path="deep-search" element={<DeepSearch />} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>
                 </main>
@@ -81,9 +90,6 @@ export default function App() {
           </ProtectedRoute>
         }
       />
-
-      {/* Root redirect */}
-      <Route path="/" element={<Navigate to={token ? "/dashboard" : "/home"} replace />} />
     </Routes>
   );
 }

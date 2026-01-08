@@ -1,32 +1,49 @@
-import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { Home, List, Users, Layers, Menu, X, FileText, Search } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import React from "react";
+import { Link, useLocation } from "react-router-dom";
+import {
+  Home,
+  ArrowDownUp,
+  TrendingUp ,
+  Users,
+  Layers,
+  Menu,
+  X,
+  FileText,
+  Search,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export default function Sidebar({ collapsed, onCollapse }) {
   const loc = useLocation();
   const items = [
-    { to: '/dashboard', label: 'Dashboard', icon: Home },
-    { to: '/transactions', label: 'Transactions', icon: List },
-    { to: '/deep-search', label: 'Deep Search', icon: Search },
-    { to: '/invoices', label: 'Invoices', icon: FileText },
-    { to: '/users', label: 'Users', icon: Users },
-    { to: '/categories', label: 'Categories', icon: Layers }
+    { to: "/dashboard", label: "Dashboard", icon: Home },
+    { to: "/transactions", label: "Transactions", icon: TrendingUp },
+    { to: "/deep-search", label: "Deep Search", icon: Search },
+    { to: "/invoices", label: "Invoices", icon: FileText },
+    { to: "/users", label: "Users", icon: Users },
+    { to: "/categories", label: "Categories", icon: Layers },
   ];
 
   return (
-    <aside className={cn(
-      'bg-sidebar text-sidebar-foreground h-full shadow-xl transition-all duration-300 flex flex-col',
-      collapsed ? 'w-20' : 'w-64'
-    )}>
+    <aside
+      className={cn(
+        "bg-sidebar text-sidebar-foreground h-full shadow-xl transition-all duration-300 flex flex-col",
+        collapsed ? "w-20" : "w-64"
+      )}
+    >
       {/* Header */}
       <div className="p-6 flex items-center justify-between border-b border-sidebar-border shrink-0">
         {!collapsed && (
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-gradient-primary flex items-center justify-center shadow-glow">
-              <Home className="h-5 w-5 text-white" />
+            <div className="h-10 w-10 rounded-lg bg-white flex items-center justify-center shadow-glow">
+              {/* <Home className="h-5 w-5 text-white" /> */}
+              <img
+                src="/32x32-nobg.png"
+                alt="Logo"
+                className="h-24 w-24 object-contain"
+              />
             </div>
-            <span className="text-xl font-bold">ExpenseFlow</span>
+            <span className="text-xl font-bold">Slog Solutions</span>
           </div>
         )}
         <button
@@ -40,7 +57,7 @@ export default function Sidebar({ collapsed, onCollapse }) {
 
       {/* Navigation - Takes remaining space */}
       <nav className="flex-1 p-4 space-y-2 overflow-y-auto min-h-0">
-        {items.map(item => {
+        {items.map((item) => {
           const Icon = item.icon;
           const active = loc.pathname === item.to;
           return (
@@ -48,10 +65,11 @@ export default function Sidebar({ collapsed, onCollapse }) {
               key={item.to}
               to={item.to}
               className={cn(
-                'flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200',
-                'hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
-                active && 'bg-sidebar-primary text-sidebar-primary-foreground shadow-md',
-                collapsed && 'justify-center'
+                "flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200",
+                "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                active &&
+                  "bg-sidebar-primary text-sidebar-primary-foreground shadow-md",
+                collapsed && "justify-center"
               )}
             >
               <Icon className="h-5 w-5 shrink-0" />
@@ -70,4 +88,3 @@ export default function Sidebar({ collapsed, onCollapse }) {
     </aside>
   );
 }
- 

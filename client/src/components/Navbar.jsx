@@ -34,10 +34,16 @@ export default function Navbar() {
           {/* Logo/Brand */}
           <div className="flex items-center gap-3">
             <Link to={isAuthenticated ? "/dashboard" : "/"} className="flex items-center gap-2">
-              <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-blue-500 to-teal-500 flex items-center justify-center shadow-md">
-                <Home className="h-6 w-6 text-white" />
+              <div className="h-15 w-25 rounded-lg bg-gradient-to-br from-white  flex items-center justify-center shadow-md">
+                {/* <Home className="h-6 w-6 text-white" /> */}
+                 <img
+                src="/Slog-logo.png"
+                alt="Logo"
+                className="h-24 w-24 object-contain"
+              />
+
               </div>
-              <span className="text-xl font-bold gradient-text">ExpenseFlow</span>
+              {/* <span className="text-xl font-bold gradient-text"></span> */}
             </Link>
           </div>
 
@@ -90,6 +96,9 @@ export default function Navbar() {
               <>
                 <Link to="/">
                   <Button variant="ghost">Home</Button>
+                </Link>
+                <Link to="/About">
+                  <Button variant="ghost">About</Button>
                 </Link>
               </>
             )}

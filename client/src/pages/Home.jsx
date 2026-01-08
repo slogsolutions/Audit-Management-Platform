@@ -49,22 +49,17 @@ export default function Home() {
         {/* Header */}
         <header className="container mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-gradient-primary flex items-center justify-center shadow-glow">
-              <Lock className="h-5 w-5 text-white" />
+            <div className="h-20 w-20 rounded-lg bg-gradient-primary flex items-center justify-center shadow-glow">
+              {/* <Lock className="h-5 w-5 text-white" /> */}
+               <img
+                src="/BnWIcon.svg"
+                alt="Logo"
+                className="h-50 w-50 "
+              />
             </div>
             <span className="text-2xl font-bold text-white">ExpenseFlow</span>
           </div>
           <div className="flex items-center gap-4">
-            <Link to="/login">
-              <Button variant="ghost" className="text-white hover:bg-white/10">
-                Sign In
-              </Button>
-            </Link>
-            <Link to="/register">
-              <Button className="bg-white text-blue-600 hover:bg-white/90">
-                Get Started
-              </Button>
-            </Link>
           </div>
         </header>
 
@@ -74,7 +69,7 @@ export default function Home() {
             <h1 className="text-6xl md:text-7xl font-bold text-white leading-tight">
               Professional Expense
               <br />
-              <span className="bg-gradient-to-r from-blue-200 to-teal-200 bg-clip-text text-transparent">
+              <span className="bg-gradient-to-red from-blue-200 to-teal-200 bg-clip-text text-transparent">
                 Management Platform
               </span>
             </h1>
@@ -83,15 +78,15 @@ export default function Home() {
               real-time tracking, and comprehensive reporting.
             </p>
             <div className="flex items-center justify-center gap-4 pt-4">
-              <Link to="/register">
+              {/* <Link to="/register">
                 <Button size="lg" className="bg-white text-blue-600 hover:bg-white/90 text-lg px-8 h-12">
                   Start Free Trial
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Button>
-              </Link>
-              <Link to="/login">
+              </Link> */}
+              <Link to="/dashboard">
                 <Button size="lg" variant="outline" className="border-white/20 text-white hover:bg-white/10 text-lg px-8 h-12">
-                  View Demo
+                  Dashboard
                 </Button>
               </Link>
             </div>

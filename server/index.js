@@ -28,5 +28,5 @@ app.get('/health', (req, res) => res.json({ ok: true }));
 // error middleware
 app.use(errorHandler);
 
-const PORT = process.env.PORT || 4000;
+const PORT = process.env.PORT || 5012;
 app.listen(PORT, () => console.log(`Server listening on ${PORT}`));
