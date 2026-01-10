@@ -1,20 +1,22 @@
-FROM node:18-slim
+FROM node:18-alpine
 
 WORKDIR /app
 
-ENV NODE_ENV=production
-
-# Install deps first (better cache)
+# Install deps
 COPY package*.json ./
-RUN npm install --only=production
+RUN npm install
 
-# Copy Prisma schema and generate client
+# Copy only Prisma schema first and generate client
 COPY prisma ./prisma
 RUN npx prisma generate
 
-# Copy rest of the app
+# Now copy the rest of the code
 COPY . .
 
-EXPOSE 5012
+EXPOSE 5012  
 
-CMD ["node", "index.js"]
+ # or 3000, but match your actual server port
+
+CMD ["npm", "start"]   
+
+# assuming "start": "node index.js" in package.json
